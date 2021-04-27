@@ -1,10 +1,16 @@
+// It is important to config env at top of file and ASAP
+// It only needs to require and config once, so I won't save to a variable
+require("dotenv").config();
 const express = require("express");
 const _ = require("lodash");
 var cors = require('cors');
 const { Mongoose } = require("mongoose");
 const app = express();
 const mongoose = require("mongoose");
-const encrypt = require("mongoose-encryption");
+//* Hashing (Level #3)
+var md5 = require("md5");
+const { method } = require("lodash");
+
 
 //! Express v4.16.0 and higher
 // --------------------------
@@ -31,10 +37,6 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-//* mongoose-encryption
-const secret = "SomesecretImadeup.";
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
-
 const User = new mongoose.model("User", userSchema);
 
 // !Routes
@@ -52,7 +54,7 @@ app.get("/register", function(req, res) {
 
 app.post("/register", function(req, res) {
     const email = req.body.username;
-    const password = req.body.password;
+    const password = md5(req.body.password);
     
     const newUser = new User({
         email: email,
@@ -70,7 +72,7 @@ app.post("/register", function(req, res) {
 
 app.post("/login", function(req, res) {
     const email = req.body.username;
-    const password = req.body.password;
+    const password = md5(req.body.password);
     User.findOne({ email: email }, function (err, foundUser) {
         if (err) {
             console.log(err);
@@ -97,3 +99,14 @@ if (port == null || port == "") {
 app.listen(port, function () {
     console.log(`Server is running on PORT: ${port}`);
 });
+
+
+
+
+
+
+//! IMPORTANT NOTES: 
+
+// 1.) Install md5 with npm and then require into the appropriate module
+// 2.) When creating a user, make sure to hash the users password before storing (using md5() method)
+// 3.) When logging in already enrolled users, make sure to hash the users password again in order to that to the previosly hashed password that is stored in the database already
