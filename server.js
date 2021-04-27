@@ -7,10 +7,9 @@ var cors = require('cors');
 const { Mongoose } = require("mongoose");
 const app = express();
 const mongoose = require("mongoose");
-//* Hashing (Level #3)
-var md5 = require("md5");
-const { method } = require("lodash");
-
+//* Salting and Hashing with bcrypt (Level #4)
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 //! Express v4.16.0 and higher
 // --------------------------
@@ -53,38 +52,42 @@ app.get("/register", function(req, res) {
 });
 
 app.post("/register", function(req, res) {
-    const email = req.body.username;
-    const password = md5(req.body.password);
-    
-    const newUser = new User({
-        email: email,
-        password: password
+
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+        
+        newUser.save(function(err) {
+            if (!err) {
+                res.render("secrets");
+            } else {
+                console.log(err);
+            }
+        });
     });
-    
-    newUser.save(function(err) {
-        if (!err) {
-            res.render("secrets");
-        } else {
-            console.log(err);
-        }
-    });
-})
+});
 
 app.post("/login", function(req, res) {
-    const email = req.body.username;
-    const password = md5(req.body.password);
-    User.findOne({ email: email }, function (err, foundUser) {
+
+    const username = req.body.username;
+    const password = req.body.password;
+  
+    User.findOne({ email: username }, function (err, foundUser) {
         if (err) {
             console.log(err);
         }
         else {
             if (foundUser) {
-                if (foundUser.password === password) {
-                    res.render("secrets");
-                }
-                else {
-                    console.log("You have the wrong password!");
-                }
+                bcrypt.compare(password, foundUser.password, function(err, result) {
+                    if (result === true) {
+                        res.render("secrets");
+                    }
+                    else {
+                        console.log("You have the wrong password!");
+                    }
+                });
            }
         } 
     });
