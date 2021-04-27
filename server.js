@@ -7,38 +7,70 @@ var cors = require('cors');
 const { Mongoose } = require("mongoose");
 const app = express();
 const mongoose = require("mongoose");
-//* Salting and Hashing with bcrypt (Level #4)
-const bcrypt = require('bcrypt');
-const saltRounds = 10;
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
 
-//! Express v4.16.0 and higher
+// Express v4.16.0 and higher
 // --------------------------
-// (express is required in above already)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-//! For Express version less than 4.16.0
+// For Express version less than 4.16.0
 // ------------------------------------
 // const bodyParser = require('body-parser');
 // app.use(express.json());
 // app.use(bodyParser.urlencoded({extended: true}));
 
-//! Use for serving ejs pages or css, images, etc here in server
+// Use for serving ejs pages or css, images, etc here in server
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
 
-//! Connect to database, create schema, and encrypt password
-mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
+// Cookies and Sessions (express-session)
+app.use(session({
+  secret: "Our little secret.",
+  resave: false,
+  saveUninitialized: false
+}));
+
+// (passport)
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Choose port and connect to server
+let port = process.env.PORT;
+if (port == null || port == "") {
+    port = 5000;
+}
+
+app.listen(port, function () {
+    console.log(`Server is running on PORT: ${port}`);
+});
+
+// Connect to database, create schema, and encrypt password
+mongoose.connect("mongodb://localhost:27017/userDB", {
+     useNewUrlParser: true,
+     useUnifiedTopology: true,
+     useCreateIndex: true,
+     //useFindAndModify: false, 
+});
 
 const userSchema = new mongoose.Schema({
     email: String, 
     password: String
 });
 
+// This must be used with a mongoose schema instance (not just a js object)
+userSchema.plugin(passportLocalMongoose);
+
 const User = new mongoose.model("User", userSchema);
 
-// !Routes
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+// Routes
 app.get("/", function(req, res) {
     res.render("home");
 });
@@ -51,65 +83,49 @@ app.get("/register", function(req, res) {
     res.render("register");
 });
 
-app.post("/register", function(req, res) {
+app.get("/secrets", function (req, res) {
+    if (req.isAuthenticated()) {
+        res.render("secrets");
+    }
+    else {
+        res.redirect("/login");
+    }
+})
 
-    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
-        const newUser = new User({
-            email: req.body.username,
-            password: hash
-        });
-        
-        newUser.save(function(err) {
-            if (!err) {
-                res.render("secrets");
-            } else {
-                console.log(err);
-            }
-        });
-    });
+app.post("/register", function(req, res) {
+    User.register({username: req.body.username}, req.body.password, function(err, user) {
+        if (err) {
+            console.log(err);
+            res.redirect("/register");
+        }
+        else {
+            passport.authenticate("local")(req, res, function() {
+                res.redirect("/secrets");
+            });
+        }
+    })
 });
 
 app.post("/login", function(req, res) {
 
-    const username = req.body.username;
-    const password = req.body.password;
-  
-    User.findOne({ email: username }, function (err, foundUser) {
+    const user = new User({
+        username: req.body.username,
+        password: req.body.password,
+    });
+
+    req.login(user, function (err) {
         if (err) {
             console.log(err);
         }
         else {
-            if (foundUser) {
-                bcrypt.compare(password, foundUser.password, function(err, result) {
-                    if (result === true) {
-                        res.render("secrets");
-                    }
-                    else {
-                        console.log("You have the wrong password!");
-                    }
-                });
-           }
-        } 
+            passport.authenticate("local")(req, res, function () {
+                res.redirect("/secrets");
+            })
+        }
     });
 });
 
-//! Choose port and connect to server
-let port = process.env.PORT;
-if (port == null || port == "") {
-    port = 5000;
-}
-
-app.listen(port, function () {
-    console.log(`Server is running on PORT: ${port}`);
+app.get("/logout", function (req, res) {
+    req.logout();
+    res.redirect("/");
 });
-
-
-
-
-
-
-//! IMPORTANT NOTES: 
-
-// 1.) Install md5 with npm and then require into the appropriate module
-// 2.) When creating a user, make sure to hash the users password before storing (using md5() method)
-// 3.) When logging in already enrolled users, make sure to hash the users password again in order to that to the previosly hashed password that is stored in the database already
