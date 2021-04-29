@@ -37,3 +37,6 @@ _An "Auth Code" can be likened to an admit one ticket, whereas an "Access Token"
 
 ## Environment Variables
     - npm install dotenv
+
+## Notes:
+    _ Facebook Oauth: https://www.twilio.com/blog/facebook-oauth-login-node-js-app-passport-js
