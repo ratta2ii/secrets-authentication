@@ -1,7 +1,11 @@
 const mongoose = require("mongoose");
 
+/*
+If the schema is used with the Passport-Local-Mongoose plugin, it will add a username, hash and
+salt fields to the schema automatically. The plugin is implemented in this case (see db.js),
+however, I have hard-coded them here as well for a visual reference here in the application.
+*/
 
-// User Model
 exports.userSchema = new mongoose.Schema({
     // email addresses will be synonymous with username, and are stored here in the username field
     username: { type: String, require: true, index: true, unique: true, sparse: true },
@@ -14,7 +18,6 @@ exports.userSchema = new mongoose.Schema({
     localAccount: Boolean,
     accounts: Map
 });
-
 
 
 
